@@ -65,6 +65,7 @@ from __future__ import print_function
 import glob
 import os
 import sys
+import copy
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -256,6 +257,18 @@ class World(object):
 
         return location
 
+    def get_distance_to_left_boundary(self, left_corner, rotation, left_boundary):
+        transform = carla.Transform(left_corner, rotation)
+        bnd_in_corner = transform.transform(carla.Location(x=left_boundary.x, y=left_boundary.y, z=left_boundary.z))
+
+        return -bnd_in_corner.y
+    
+    def get_distance_to_right_boundary(self, right_corner, rotation, right_boundary):
+        transform = carla.Transform(right_corner, rotation)
+        bnd_in_corner = transform.transform(carla.Location(x=right_boundary.x, y=right_boundary.y, z=right_boundary.z))
+
+        return bnd_in_corner.y
+
     def compute_features(self):
         av = self.player
         location = self.get_vehicle_center_location()
@@ -271,10 +284,37 @@ class World(object):
 
         # debug_location = carla.Location(x=0, y=0, z=2) 
         # self.world.debug.draw_string(debug_location, str(lane_center))
-        print("lane_center: ", lane_center)
+        # print("lane_center: ", lane_center)
         print("left_boundary: ", left_boundary)
-        print("right_boundary: ", right_boundary)
+        # print("right_boundary: ", right_boundary)
 
+        bounding_box = av.bounding_box
+        av_transform = av.get_transform()
+        top_left_corner = av_transform.transform(carla.Location(x=bounding_box.extent.x, y=-bounding_box.extent.y))
+        top_right_corner = av_transform.transform(carla.Location(x=bounding_box.extent.x, y=bounding_box.extent.y))
+        bottom_left_corner = av_transform.transform(carla.Location(x=-bounding_box.extent.x, y=-bounding_box.extent.y))
+        bottom_right_corner = av_transform.transform(carla.Location(x=-bounding_box.extent.x, y=bounding_box.extent.y))
+
+
+        # print("top_left_corner: ", top_left_corner)
+        # print("top_right_corner: ", top_right_corner)
+        # print("bottom_left_corner: ", bottom_left_corner)
+        # print("bottom_right_corner: ", bottom_right_corner)
+
+        top_left_to_left_bnd_dist = self.get_distance_to_left_boundary(top_left_corner, waypoint.transform.rotation, left_boundary)
+        print("vehicle center location: ", location)
+        print("lane_center: ", lane_center)
+        print("av_transform.location: ", av_transform.location)
+        print("top_left_corner: ", top_left_corner)
+        print("left_boundary: ", left_boundary)
+        #bottom_left_to_left_bnd_dist = self.get_distance_to_left_boundary(bottom_left_corner, waypoint.transform.rotation, left_boundary)
+        print("top_left_to_left_bnd_dist: ", top_left_to_left_bnd_dist)
+        # print("bottom_left_to_left_bnd_dist: ", bottom_left_to_left_bnd_dist)
+
+        # top_right_to_right_bnd_dist = self.get_distance_to_right_boundary(top_right_corner, waypoint.transform.rotation, right_boundary)
+        # bottom_right_to_right_bnd_dist = self.get_distance_to_right_boundary(bottom_right_corner, waypoint.transform.rotation, right_boundary)
+        # print("top_right_to_right_bnd_dist: ", top_right_to_right_bnd_dist)
+        # print("bottom_right_to_right_bnd_dist: ", bottom_right_to_right_bnd_dist)
 
         # Next steps: let's compute distance from AV's bounding box to the left and right boundary.
         # And let's test that, ensuring that when I get close or even breach the boundary, the distance is correct.
@@ -1430,3 +1470,4 @@ def main():
 if __name__ == '__main__':
 
     main()
+
