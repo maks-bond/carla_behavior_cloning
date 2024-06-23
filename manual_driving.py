@@ -149,6 +149,7 @@ except ImportError:
 # -- Global functions ----------------------------------------------------------
 # ==============================================================================
 
+FIXED_DELTA_SECONDS = 0.05
 
 def find_weather_presets():
     rgx = re.compile('.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)')
@@ -190,6 +191,8 @@ def get_actor_blueprints(world, filter, generation):
 # -- World ---------------------------------------------------------------------
 # ==============================================================================
 
+def loc(x, y, z):
+    return carla.Location(x, y, z)
 
 class World(object):
     def __init__(self, carla_world, hud, args):
@@ -269,24 +272,56 @@ class World(object):
 
         return bnd_in_corner.y
 
+    def draw_box(self, location, rotation, color):
+        BOX_WIDTH = 0.05
+        THICKNESS = 0.01
+        debug_location = carla.Location(location.x, location.y, location.z+2.0)
+        box = carla.BoundingBox(debug_location, carla.Vector3D(BOX_WIDTH, BOX_WIDTH, BOX_WIDTH))
+        self.world.debug.draw_box(box, rotation, thickness=THICKNESS, life_time=FIXED_DELTA_SECONDS+0.01, color=color)
+
+    def draw_arrow(self, start_location, end_location, color):
+        THICKNESS = 0.01
+        debug_start_location = carla.Location(start_location.x, start_location.y, start_location.z+2.0)
+        debug_end_location = carla.Location(end_location.x, end_location.y, end_location.z+2.0)
+        self.world.debug.draw_arrow(debug_start_location, debug_end_location, thickness=THICKNESS, life_time=FIXED_DELTA_SECONDS+0.01, color=color)
+
+    def compute_lateral_distance(location, unit_vector):
+        # We keep z the same.
+        perpendicular_vector = [-unit_vector.y, unit_vector.x, unit_vector.z]
+        dot_product = np.dot(perpendicular_vector, location)
+        lateral_distance = dot_product/np.norm(unit_vector)
+
+        return lateral_distance
+    
+
     def compute_features(self):
         av = self.player
         location = self.get_vehicle_center_location()
 
+        WAYPOINT_COLOR = carla.Color(255,0,0,100)
+        CORNER_COLOR = carla.Color(0,0,255,100)
+        BOUNDARY_COLOR = carla.Color(0,255,0,100)
+        
+        AXIS_X_COLOR = carla.Color(255, 5, 5, 100)
+        AXIS_Y_COLOR = carla.Color(255, 55, 55, 100)
+        AXIS_Z_COLOR = carla.Color(255, 105, 105, 100)
+
         map = self.world.get_map()
+        # Waypoint represents closest lane sample to given location.
         waypoint = map.get_waypoint(location, project_to_road=True, lane_type=carla.LaneType.Driving)
         lane_center = waypoint.transform.location
+        rotation = waypoint.transform.rotation
 
         lane_width = waypoint.lane_width
+
+        self.draw_box(lane_center, rotation, WAYPOINT_COLOR)
 
         left_boundary = waypoint.transform.transform(carla.Location(y=-lane_width/2))
         right_boundary = waypoint.transform.transform(carla.Location(y=lane_width/2))
 
-        # debug_location = carla.Location(x=0, y=0, z=2) 
-        # self.world.debug.draw_string(debug_location, str(lane_center))
-        # print("lane_center: ", lane_center)
-        print("left_boundary: ", left_boundary)
-        # print("right_boundary: ", right_boundary)
+        self.draw_box(left_boundary, rotation, BOUNDARY_COLOR)
+        self.draw_arrow(lane_center, left_boundary, BOUNDARY_COLOR)
+        self.draw_arrow(lane_center, right_boundary, BOUNDARY_COLOR)
 
         bounding_box = av.bounding_box
         av_transform = av.get_transform()
@@ -295,20 +330,35 @@ class World(object):
         bottom_left_corner = av_transform.transform(carla.Location(x=-bounding_box.extent.x, y=-bounding_box.extent.y))
         bottom_right_corner = av_transform.transform(carla.Location(x=-bounding_box.extent.x, y=bounding_box.extent.y))
 
+        self.draw_box(top_left_corner, rotation, CORNER_COLOR)
 
+        AXIS_LENGTH = 0.2
+        # direction_x = carla.Location(np.cos(rotation.yaw), np.sin(rotation.yaw), 0)
+        # direction_y = carla.Location(-direction_x.y, direction_x.x, 0)
+        # x_axis = self.loc(top_left_corner.x + AXIS_LENGTH * direction_x.x, top_left_corner.y + AXIS_LENGTH * direction_y.y, top_left_corner.z)
+        # y_axis = self.loc(top_left_corner.x + AXIS_LENGTH * direction_y.x, top_left_corner.y + AXIS_LENGTH * direction_y.y, top_left_corner.z)
+        x_axis = waypoint.transform.transform(loc(1, 0, 0)*AXIS_LENGTH)
+        y_axis = waypoint.transform.transform(loc(0, 1, 0)*AXIS_LENGTH)
+
+        self.draw_arrow(top_left_corner, x_axis, AXIS_X_COLOR)
+        self.draw_arrow(top_left_corner, y_axis, AXIS_Y_COLOR)
+
+        # I think that I actualy need to be transforming boundary location into a frame of the corner.
+        # Let's transform and draw axis.
+        
         # print("top_left_corner: ", top_left_corner)
         # print("top_right_corner: ", top_right_corner)
         # print("bottom_left_corner: ", bottom_left_corner)
         # print("bottom_right_corner: ", bottom_right_corner)
 
         top_left_to_left_bnd_dist = self.get_distance_to_left_boundary(top_left_corner, waypoint.transform.rotation, left_boundary)
-        print("vehicle center location: ", location)
-        print("lane_center: ", lane_center)
-        print("av_transform.location: ", av_transform.location)
-        print("top_left_corner: ", top_left_corner)
-        print("left_boundary: ", left_boundary)
+        #print("vehicle center location: ", location)
+        #print("lane_center: ", lane_center)
+        #print("av_transform.location: ", av_transform.location)
+        #print("top_left_corner: ", top_left_corner)
+        #print("left_boundary: ", left_boundary)
         #bottom_left_to_left_bnd_dist = self.get_distance_to_left_boundary(bottom_left_corner, waypoint.transform.rotation, left_boundary)
-        print("top_left_to_left_bnd_dist: ", top_left_to_left_bnd_dist)
+        #print("top_left_to_left_bnd_dist: ", top_left_to_left_bnd_dist)
         # print("bottom_left_to_left_bnd_dist: ", bottom_left_to_left_bnd_dist)
 
         # top_right_to_right_bnd_dist = self.get_distance_to_right_boundary(top_right_corner, waypoint.transform.rotation, right_boundary)
@@ -316,12 +366,15 @@ class World(object):
         # print("top_right_to_right_bnd_dist: ", top_right_to_right_bnd_dist)
         # print("bottom_right_to_right_bnd_dist: ", bottom_right_to_right_bnd_dist)
 
+        # Let's understand how translation works!
+        # Just add some test cases.
         # Next steps: let's compute distance from AV's bounding box to the left and right boundary.
         # And let's test that, ensuring that when I get close or even breach the boundary, the distance is correct.
         # Then similarly compute the distance from AV's center to lane center and these will be my features.
         # Then collect driving data with these values and train the model.
         # Model's output is steering and acceleration.
         # However I need to drive straight right. Perhaps I need information about such distance within some horizon.
+        # Also, let's extract out this new logic into a separate file.
         
 
     def restart(self):
@@ -334,7 +387,7 @@ class World(object):
         blueprint_list = get_actor_blueprints(self.world, self._actor_filter, self._actor_generation)
         if not blueprint_list:
             raise ValueError("Couldn't find any blueprints with the specified filters")
-        blueprint = random.choice(blueprint_list)
+        blueprint = self.world.get_blueprint_library().find("vehicle.lincoln.mkz_2017") #random.choice(blueprint_list)
         blueprint.set_attribute('role_name', self.actor_role_name)
         if blueprint.has_attribute('terramechanics'):
             blueprint.set_attribute('terramechanics', 'true')
@@ -1183,17 +1236,18 @@ class CameraManager(object):
         if not self._parent.type_id.startswith("walker.pedestrian"):
             self._camera_transforms = [
                 (carla.Transform(carla.Location(x=-2.0*bound_x, y=+0.0*bound_y, z=2.0*bound_z), carla.Rotation(pitch=8.0)), Attachment.SpringArmGhost),
-                (carla.Transform(carla.Location(x=+0.8*bound_x, y=+0.0*bound_y, z=1.3*bound_z)), Attachment.Rigid),
-                (carla.Transform(carla.Location(x=+1.9*bound_x, y=+1.0*bound_y, z=1.2*bound_z)), Attachment.SpringArmGhost),
-                (carla.Transform(carla.Location(x=-2.8*bound_x, y=+0.0*bound_y, z=4.6*bound_z), carla.Rotation(pitch=6.0)), Attachment.SpringArmGhost),
-                (carla.Transform(carla.Location(x=-1.0, y=-1.0*bound_y, z=0.4*bound_z)), Attachment.Rigid)]
+                (carla.Transform(carla.Location(x=0.0*bound_x, y=+0.0*bound_y, z=6.0*bound_z), carla.Rotation(yaw=0.0, pitch=-90.0, roll=0.0)), Attachment.Rigid),
+                (carla.Transform(carla.Location(x=1.0*bound_x, y=+0.0*bound_y, z=6.0*bound_z), carla.Rotation(yaw=0.0, pitch=-90.0, roll=0.0)), Attachment.Rigid),
+                (carla.Transform(carla.Location(x=1.0*bound_x, y=-1.0*bound_y, z=3.0*bound_z), carla.Rotation(yaw=0.0, pitch=-90.0, roll=0.0)), Attachment.Rigid)
+                ]
         else:
             self._camera_transforms = [
                 (carla.Transform(carla.Location(x=-2.5, z=0.0), carla.Rotation(pitch=-8.0)), Attachment.SpringArmGhost),
+                (carla.Transform(carla.Location(x=0.0, z=0.0), carla.Rotation(pitch=-90.0)), Attachment.SpringArmGhost),
                 (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
                 (carla.Transform(carla.Location(x=2.5, y=0.5, z=0.0), carla.Rotation(pitch=-8.0)), Attachment.SpringArmGhost),
                 (carla.Transform(carla.Location(x=-4.0, z=2.0), carla.Rotation(pitch=6.0)), Attachment.SpringArmGhost),
-                (carla.Transform(carla.Location(x=0, y=-2.5, z=-0.0), carla.Rotation(yaw=90.0)), Attachment.Rigid)]
+                (carla.Transform(carla.Location(x=0, y=-2.5, z=-0.0), carla.Rotation(yaw=90.0)), Attachment.Rigid)] 
 
         self.transform_index = 1
         self.sensors = [
@@ -1333,13 +1387,14 @@ def game_loop(args):
         client = carla.Client(args.host, args.port)
         client.set_timeout(2000.0)
 
-        sim_world = client.get_world()
+        sim_world = client.load_world('Town02') #client.get_world()
+        args.sync = True
         if args.sync:
             original_settings = sim_world.get_settings()
             settings = sim_world.get_settings()
             if not settings.synchronous_mode:
                 settings.synchronous_mode = True
-                settings.fixed_delta_seconds = 0.05
+                settings.fixed_delta_seconds = FIXED_DELTA_SECONDS
             sim_world.apply_settings(settings)
 
             traffic_manager = client.get_trafficmanager()
