@@ -214,6 +214,15 @@ def euler_to_rotation_matrix(roll, pitch, yaw):
     R = np.dot(R_z, np.dot(R_y, R_x))
     return R
 
+def compute_lateral_distance(source_point, target_point, source_rotation):
+    rotation_matrix = euler_to_rotation_matrix(source_rotation.roll, source_rotation.pitch, source_rotation.yaw)
+    target_relative_to_source = to_np(target_point-source_point)
+    target_relative_to_source[2] = 0.0
+
+    target_in_source = np.dot(rotation_matrix.T, target_relative_to_source)
+
+    return target_in_source[1]
+
 class World(object):
     def __init__(self, carla_world, hud, args):
         self.world = carla_world
@@ -263,25 +272,6 @@ class World(object):
 
         self.VIZ_Z = 0.3
 
-    #TODO: Figure out which location to use.
-    def get_vehicle_center_location(self):
-        location = self.player.get_location()
-        # bounding_box = av.bounding_box
-        # vehicle_transform = av.get_transform()
-
-        # center_location = vehicle_transform.transform(
-        #     carla.Location(x=-bounding_box.extent.x)
-        # )
-        # bounding_box_location = bounding_box.location
-
-        # print(f'Vehicle location: x={location.x}, y={location.y}, z={location.z}')
-        # print(f'Vehicle transform: x={vehicle_transform.x}, y={vehicle_transform.y}, z={vehicle_transform.z}')
-        # print(f'Center location: x={center_location.x}, y={center_location.y}, z={center_location.z}')
-        # print(f'Bounding box location: x={bounding_box_location.x}, y={bounding_box_location.y}, z={bounding_box_location.z}')
-        # print("===================")
-
-        return location
-
     def get_distance_to_left_boundary(self, left_corner, rotation, left_boundary):
         transform = carla.Transform(left_corner, rotation)
         bnd_in_corner = transform.transform(carla.Location(x=left_boundary.x, y=left_boundary.y, z=left_boundary.z))
@@ -310,20 +300,21 @@ class World(object):
     def draw_string(self, location, text, color):
         debug_location = carla.Location(location.x, location.y, location.z+self.VIZ_Z+0.02)
         self.world.debug.draw_string(debug_location, text, life_time=FIXED_DELTA_SECONDS+0.01, color=color)
-
-    def compute_lateral_distance(self, source_point, target_point, source_rotation):
-        rotation_matrix = euler_to_rotation_matrix(source_rotation.roll, source_rotation.pitch, source_rotation.yaw)
-        target_relative_to_source = to_np(target_point-source_point)
-        target_relative_to_source[2] = 0.0
-
-        target_in_source = np.dot(rotation_matrix.T, target_relative_to_source)
-
-        return target_in_source[1]
     
+    def min_distance_to_boundary(self, corners, boundary, rotation, is_left):
+        min_dist = float("inf")
+        for corner in corners:
+            lateral_dist = compute_lateral_distance(corner, boundary, rotation)
+            if is_left:
+                lateral_dist = -lateral_dist
+            
+            min_dist = min(min_dist, lateral_dist)
+        
+        return min_dist
 
     def compute_features(self):
         av = self.player
-        location = self.get_vehicle_center_location()
+        location = self.player.get_location()
 
         WAYPOINT_COLOR = carla.Color(255,0,0,100)
         CORNER_COLOR = carla.Color(0,0,255,100)
@@ -357,15 +348,12 @@ class World(object):
         bottom_left_corner = av_transform.transform(carla.Location(x=-bounding_box.extent.x, y=-bounding_box.extent.y))
         bottom_right_corner = av_transform.transform(carla.Location(x=-bounding_box.extent.x, y=bounding_box.extent.y))
 
+        corners = [top_left_corner, top_right_corner, bottom_left_corner, bottom_right_corner]
+
         self.draw_box(top_left_corner, rotation, CORNER_COLOR)
 
         AXIS_LENGTH = 0.2
-        # direction_x = carla.Location(np.cos(rotation.yaw), np.sin(rotation.yaw), 0)
-        # direction_y = carla.Location(-direction_x.y, direction_x.x, 0)
-        # x_axis = self.loc(top_left_corner.x + AXIS_LENGTH * direction_x.x, top_left_corner.y + AXIS_LENGTH * direction_y.y, top_left_corner.z)
-        # y_axis = self.loc(top_left_corner.x + AXIS_LENGTH * direction_y.x, top_left_corner.y + AXIS_LENGTH * direction_y.y, top_left_corner.z)
         top_left_corner_transform = carla.Transform(top_left_corner, rotation)
-
         x_axis = top_left_corner_transform.transform(loc(1, 0, 0)*AXIS_LENGTH)
         y_axis = top_left_corner_transform.transform(loc(0, 1, 0)*AXIS_LENGTH)
 
@@ -373,9 +361,15 @@ class World(object):
         self.draw_arrow(top_left_corner, y_axis, AXIS_Y_COLOR, arrow_size = 0.02)
 
         # I will work with rotation matrices, but it would be so cool to work with quaternions instead.
-        top_left_to_left_bnd_dist = -self.compute_lateral_distance(top_left_corner, left_boundary, rotation)
+        top_left_to_left_bnd_dist = -compute_lateral_distance(top_left_corner, left_boundary, rotation)
         print("top_left_to_left_bnd_dist: ", top_left_to_left_bnd_dist)
         
+        min_dist_left_bnd = self.min_distance_to_boundary(corners, left_boundary, rotation, True)
+        min_dist_right_bnd = self.min_distance_to_boundary(corners, right_boundary, rotation, False)
+
+        print("min_dist_left_bnd: ", min_dist_left_bnd)
+        print("min_dist_right_bnd: ", min_dist_right_bnd)
+
         #print("vehicle center location: ", location)
         #print("lane_center: ", lane_center)
         #print("av_transform.location: ", av_transform.location)
