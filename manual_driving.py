@@ -393,6 +393,11 @@ class World(object):
         # Model's output is steering and acceleration.
         # However I need to drive straight right. Perhaps I need information about such distance within some horizon.
         # Also, let's extract out this new logic into a separate file.
+
+        # TODO Jun 23:
+        # 1. Debug transformation. Perhaps just write unit tests. Can try using quaternions.
+        # 2. Once that is complete. Fun sub-project is to implement camera controls.
+        # 3. Then I need to compute features for ML. Boundary distances are good. Need to know future curvatures, need to know current speed, current heading delta.
         
 
     def restart(self):
