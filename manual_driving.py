@@ -194,6 +194,26 @@ def get_actor_blueprints(world, filter, generation):
 def loc(x, y, z):
     return carla.Location(x, y, z)
 
+def to_np(location):
+    return np.array([location.x, location.y, location.z])
+
+# It would be cool to switch to quaternions
+def euler_to_rotation_matrix(roll, pitch, yaw):
+    R_x = np.array([[1, 0, 0],
+                    [0, np.cos(roll), -np.sin(roll)],
+                    [0, np.sin(roll), np.cos(roll)]])
+    
+    R_y = np.array([[np.cos(pitch), 0, np.sin(pitch)],
+                    [0, 1, 0],
+                    [-np.sin(pitch), 0, np.cos(pitch)]])
+    
+    R_z = np.array([[np.cos(yaw), -np.sin(yaw), 0],
+                    [np.sin(yaw), np.cos(yaw), 0],
+                    [0, 0, 1]])
+    
+    R = np.dot(R_z, np.dot(R_y, R_x))
+    return R
+
 class World(object):
     def __init__(self, carla_world, hud, args):
         self.world = carla_world
@@ -241,6 +261,8 @@ class World(object):
             carla.MapLayer.All
         ]
 
+        self.VIZ_Z = 0.3
+
     #TODO: Figure out which location to use.
     def get_vehicle_center_location(self):
         location = self.player.get_location()
@@ -275,23 +297,28 @@ class World(object):
     def draw_box(self, location, rotation, color):
         BOX_WIDTH = 0.05
         THICKNESS = 0.01
-        debug_location = carla.Location(location.x, location.y, location.z+2.0)
+        debug_location = carla.Location(location.x, location.y, location.z+self.VIZ_Z)
         box = carla.BoundingBox(debug_location, carla.Vector3D(BOX_WIDTH, BOX_WIDTH, BOX_WIDTH))
         self.world.debug.draw_box(box, rotation, thickness=THICKNESS, life_time=FIXED_DELTA_SECONDS+0.01, color=color)
 
-    def draw_arrow(self, start_location, end_location, color):
+    def draw_arrow(self, start_location, end_location, color, arrow_size=0.1):
         THICKNESS = 0.01
-        debug_start_location = carla.Location(start_location.x, start_location.y, start_location.z+2.0)
-        debug_end_location = carla.Location(end_location.x, end_location.y, end_location.z+2.0)
-        self.world.debug.draw_arrow(debug_start_location, debug_end_location, thickness=THICKNESS, life_time=FIXED_DELTA_SECONDS+0.01, color=color)
+        debug_start_location = carla.Location(start_location.x, start_location.y, start_location.z+self.VIZ_Z)
+        debug_end_location = carla.Location(end_location.x, end_location.y, end_location.z+self.VIZ_Z)
+        self.world.debug.draw_arrow(debug_start_location, debug_end_location, thickness=THICKNESS, life_time=FIXED_DELTA_SECONDS+0.01, color=color, arrow_size=arrow_size)
 
-    def compute_lateral_distance(location, unit_vector):
-        # We keep z the same.
-        perpendicular_vector = [-unit_vector.y, unit_vector.x, unit_vector.z]
-        dot_product = np.dot(perpendicular_vector, location)
-        lateral_distance = dot_product/np.norm(unit_vector)
+    def draw_string(self, location, text, color):
+        debug_location = carla.Location(location.x, location.y, location.z+self.VIZ_Z+0.02)
+        self.world.debug.draw_string(debug_location, text, life_time=FIXED_DELTA_SECONDS+0.01, color=color)
 
-        return lateral_distance
+    def compute_lateral_distance(self, source_point, target_point, source_rotation):
+        rotation_matrix = euler_to_rotation_matrix(source_rotation.roll, source_rotation.pitch, source_rotation.yaw)
+        target_relative_to_source = to_np(target_point-source_point)
+        target_relative_to_source[2] = 0.0
+
+        target_in_source = np.dot(rotation_matrix.T, target_relative_to_source)
+
+        return target_in_source[1]
     
 
     def compute_features(self):
@@ -303,8 +330,8 @@ class World(object):
         BOUNDARY_COLOR = carla.Color(0,255,0,100)
         
         AXIS_X_COLOR = carla.Color(255, 5, 5, 100)
-        AXIS_Y_COLOR = carla.Color(255, 55, 55, 100)
-        AXIS_Z_COLOR = carla.Color(255, 105, 105, 100)
+        AXIS_Y_COLOR = carla.Color(255, 105, 105, 100)
+        AXIS_Z_COLOR = carla.Color(255, 205, 205, 100)
 
         map = self.world.get_map()
         # Waypoint represents closest lane sample to given location.
@@ -337,21 +364,18 @@ class World(object):
         # direction_y = carla.Location(-direction_x.y, direction_x.x, 0)
         # x_axis = self.loc(top_left_corner.x + AXIS_LENGTH * direction_x.x, top_left_corner.y + AXIS_LENGTH * direction_y.y, top_left_corner.z)
         # y_axis = self.loc(top_left_corner.x + AXIS_LENGTH * direction_y.x, top_left_corner.y + AXIS_LENGTH * direction_y.y, top_left_corner.z)
-        x_axis = waypoint.transform.transform(loc(1, 0, 0)*AXIS_LENGTH)
-        y_axis = waypoint.transform.transform(loc(0, 1, 0)*AXIS_LENGTH)
+        top_left_corner_transform = carla.Transform(top_left_corner, rotation)
 
-        self.draw_arrow(top_left_corner, x_axis, AXIS_X_COLOR)
-        self.draw_arrow(top_left_corner, y_axis, AXIS_Y_COLOR)
+        x_axis = top_left_corner_transform.transform(loc(1, 0, 0)*AXIS_LENGTH)
+        y_axis = top_left_corner_transform.transform(loc(0, 1, 0)*AXIS_LENGTH)
 
-        # I think that I actualy need to be transforming boundary location into a frame of the corner.
-        # Let's transform and draw axis.
+        self.draw_arrow(top_left_corner, x_axis, AXIS_X_COLOR, arrow_size = 0.02)
+        self.draw_arrow(top_left_corner, y_axis, AXIS_Y_COLOR, arrow_size = 0.02)
+
+        # I will work with rotation matrices, but it would be so cool to work with quaternions instead.
+        top_left_to_left_bnd_dist = -self.compute_lateral_distance(top_left_corner, left_boundary, rotation)
+        print("top_left_to_left_bnd_dist: ", top_left_to_left_bnd_dist)
         
-        # print("top_left_corner: ", top_left_corner)
-        # print("top_right_corner: ", top_right_corner)
-        # print("bottom_left_corner: ", bottom_left_corner)
-        # print("bottom_right_corner: ", bottom_right_corner)
-
-        top_left_to_left_bnd_dist = self.get_distance_to_left_boundary(top_left_corner, waypoint.transform.rotation, left_boundary)
         #print("vehicle center location: ", location)
         #print("lane_center: ", lane_center)
         #print("av_transform.location: ", av_transform.location)
