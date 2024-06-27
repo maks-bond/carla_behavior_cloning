@@ -211,7 +211,7 @@ def euler_to_rotation_matrix(roll, pitch, yaw):
                     [np.sin(yaw), np.cos(yaw), 0],
                     [0, 0, 1]])
     
-    R = np.dot(R_z, np.dot(R_y, R_x))
+    R = np.dot(R_y, np.dot(R_z, R_x))
     return R
 
 def compute_lateral_distance(source_point, target_point, source_rotation):
