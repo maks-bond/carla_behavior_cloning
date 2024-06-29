@@ -211,11 +211,27 @@ def euler_to_rotation_matrix(roll, pitch, yaw):
                     [np.sin(yaw), np.cos(yaw), 0],
                     [0, 0, 1]])
     
-    R = np.dot(R_y, np.dot(R_z, R_x))
+    R = np.dot(R_x, np.dot(R_y, R_z))
     return R
 
-def compute_lateral_distance(source_point, target_point, source_rotation):
+def transform_to_rotation_matrix(transform):
+    transform_matrix = transform.get_matrix()
+    rotation_matrix = np.zeros((3, 3))
+    for row_idx in range(3):
+        rotation_matrix[row_idx] = transform_matrix[row_idx][:3]
+    return rotation_matrix
+
+def compute_lateral_distance2(source_point, target_point, source_rotation):
     rotation_matrix = euler_to_rotation_matrix(source_rotation.roll, source_rotation.pitch, source_rotation.yaw)
+    target_relative_to_source = to_np(target_point-source_point)
+    target_relative_to_source[2] = 0.0
+
+    target_in_source = np.dot(rotation_matrix.T, target_relative_to_source)
+
+    return target_in_source[1]
+
+def compute_lateral_distance(source_point, target_point, transform):
+    rotation_matrix = transform_to_rotation_matrix(transform)
     target_relative_to_source = to_np(target_point-source_point)
     target_relative_to_source[2] = 0.0
 
@@ -301,10 +317,10 @@ class World(object):
         debug_location = carla.Location(location.x, location.y, location.z+self.VIZ_Z+0.02)
         self.world.debug.draw_string(debug_location, text, life_time=FIXED_DELTA_SECONDS+0.01, color=color)
     
-    def min_distance_to_boundary(self, corners, boundary, rotation, is_left):
+    def min_distance_to_boundary(self, corners, boundary, transform, is_left):
         min_dist = float("inf")
         for corner in corners:
-            lateral_dist = compute_lateral_distance(corner, boundary, rotation)
+            lateral_dist = compute_lateral_distance(corner, boundary, transform)
             if is_left:
                 lateral_dist = -lateral_dist
             
@@ -361,11 +377,11 @@ class World(object):
         self.draw_arrow(top_left_corner, y_axis, AXIS_Y_COLOR, arrow_size = 0.02)
 
         # I will work with rotation matrices, but it would be so cool to work with quaternions instead.
-        top_left_to_left_bnd_dist = -compute_lateral_distance(top_left_corner, left_boundary, rotation)
+        top_left_to_left_bnd_dist = -compute_lateral_distance(top_left_corner, left_boundary, waypoint.transform)
         print("top_left_to_left_bnd_dist: ", top_left_to_left_bnd_dist)
         
-        min_dist_left_bnd = self.min_distance_to_boundary(corners, left_boundary, rotation, True)
-        min_dist_right_bnd = self.min_distance_to_boundary(corners, right_boundary, rotation, False)
+        min_dist_left_bnd = self.min_distance_to_boundary(corners, left_boundary, waypoint.transform, True)
+        min_dist_right_bnd = self.min_distance_to_boundary(corners, right_boundary, waypoint.transform, False)
 
         print("min_dist_left_bnd: ", min_dist_left_bnd)
         print("min_dist_right_bnd: ", min_dist_right_bnd)
