@@ -1463,6 +1463,8 @@ def game_loop(args):
                 path.append(carla.Location(182.6, 104.9, 0.5))
                 path.append(carla.Location(-7.6, 129.2, 0.5))
             traffic_manager.set_path(world.player, path)
+            traffic_manager.ignore_lights_percentage(world.player, 100.0)
+            traffic_manager.set_desired_speed(world.player, 30.0)
 
         if args.autopilot and not sim_world.get_settings().synchronous_mode:
             print("WARNING: You are currently in asynchronous mode and could "
