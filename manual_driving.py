@@ -331,6 +331,11 @@ class World(object):
     def compute_features(self):
         av = self.player
         location = self.player.get_location()
+        transform = self.player.get_transform()
+        rotation = transform.rotation
+
+        print("Location x: ", location.x, ", locataion.y: ", location.y, ", location.z: ", location.z)
+        print("rotation pitch: ", rotation.pitch, ", rotation.yaw: ", rotation.yaw, ", rotation.roll: ", rotation.roll)
 
         WAYPOINT_COLOR = carla.Color(255,0,0,100)
         CORNER_COLOR = carla.Color(0,0,255,100)
@@ -458,8 +463,9 @@ class World(object):
                 print('There are no spawn points available in your map/town.')
                 print('Please add some Vehicle Spawn Point to your UE4 scene.')
                 sys.exit(1)
-            spawn_points = self.map.get_spawn_points()
-            spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
+            #spawn_points = self.map.get_spawn_points()
+            #spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
+            spawn_point = carla.Transform(carla.Location(6.0, 306.6, 0.5), carla.Rotation(0.0, 1.3788, 0.0))
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
             self.show_vehicle_telemetry = False
             self.modify_vehicle_physics(self.player)
@@ -1415,6 +1421,14 @@ class CameraManager(object):
 # -- game_loop() ---------------------------------------------------------------
 # ==============================================================================
 
+def set_traffic_lights_to_green(world):
+    # Iterate over all traffic lights in the world
+    for actor in world.get_actors():
+        if actor.type_id == 'traffic.traffic_light':
+            traffic_light = actor
+            # Set the traffic light state to green
+            traffic_light.set_state(carla.TrafficLightState.Green)
+            traffic_light.set_green_time(float('inf'))
 
 def game_loop(args):
     pygame.init()
@@ -1428,6 +1442,9 @@ def game_loop(args):
 
         sim_world = client.load_world('Town02') #client.get_world()
         args.sync = True
+        hud = HUD(args.width, args.height)
+        world = World(sim_world, hud, args)
+
         if args.sync:
             original_settings = sim_world.get_settings()
             settings = sim_world.get_settings()
@@ -1439,6 +1456,14 @@ def game_loop(args):
             traffic_manager = client.get_trafficmanager()
             traffic_manager.set_synchronous_mode(True)
 
+            path = []
+            for i in range(5):
+                path.append(carla.Location(6.0, 306.6, 0.5))
+                path.append(carla.Location(192.8, 287.4, 0.5))
+                path.append(carla.Location(182.6, 104.9, 0.5))
+                path.append(carla.Location(-7.6, 129.2, 0.5))
+            traffic_manager.set_path(world.player, path)
+
         if args.autopilot and not sim_world.get_settings().synchronous_mode:
             print("WARNING: You are currently in asynchronous mode and could "
                   "experience some issues with the traffic simulation")
@@ -1449,8 +1474,6 @@ def game_loop(args):
         display.fill((0,0,0))
         pygame.display.flip()
 
-        hud = HUD(args.width, args.height)
-        world = World(sim_world, hud, args)
         controller = KeyboardControl(world, args.autopilot)
 
         if args.sync:
@@ -1459,6 +1482,9 @@ def game_loop(args):
             sim_world.wait_for_tick()
 
         clock = pygame.time.Clock()
+
+        set_traffic_lights_to_green(world.world)
+        
         while True:
             world.compute_features()
 
