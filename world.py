@@ -76,6 +76,37 @@ def compute_lateral_distance(source_point, target_point, transform):
 
     return target_in_source[1]
 
+# taken from Chat GPT.
+def calculate_curvature(p1, p2, p3):
+    # Extract coordinates
+    x1, y1 = p1
+    x2, y2 = p2
+    x3, y3 = p3
+    
+    # Calculate the side lengths of the triangle
+    a = math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2)
+    b = math.sqrt((x1 - x3) ** 2 + (y1 - y3) ** 2)
+    c = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+    
+    # Calculate the area of the triangle using Heron's formula
+    s = (a + b + c) / 2  # Semi-perimeter
+    area = math.sqrt(s * (s - a) * (s - b) * (s - c))
+    
+    # Check if the points are collinear (area == 0)
+    if area == 0:
+        return 0.0  # Curvature is zero for collinear points
+    
+    # Calculate the circumradius
+    circumradius = (a * b * c) / (4 * area)
+    
+    # Calculate the curvature (1 / circumradius)
+    curvature = 1 / circumradius
+    
+    return curvature
+
+# Now I need to get future points.
+# How can I do that?
+
 # ==============================================================================
 # -- CameraManager -------------------------------------------------------------
 # ==============================================================================
@@ -466,7 +497,7 @@ def find_weather_presets():
     return [(getattr(carla.WeatherParameters, x), name(x)) for x in presets]
 
 class World(object):
-    def __init__(self, carla_world, hud, args):
+    def __init__(self, carla_world, hud, traffic_manager, args):
         self.world = carla_world
         self.sync = args.sync
         self.actor_role_name = args.rolename
@@ -477,6 +508,8 @@ class World(object):
             print('  The server could not send the OpenDRIVE (.xodr) file:')
             print('  Make sure it exists, has the same name of your town, and is correct.')
             sys.exit(1)
+
+        self.traffic_manager = traffic_manager
         self.hud = hud
         self.player = None
         self.collision_sensor = None
@@ -490,6 +523,8 @@ class World(object):
         self._actor_filter = args.filter
         self._actor_generation = args.generation
         self._gamma = args.gamma
+
+        # Player is created here
         self.restart()
         self.world.on_tick(hud.on_world_tick)
         self.recording_enabled = False
@@ -513,6 +548,21 @@ class World(object):
         ]
 
         self.VIZ_Z = 0.3
+
+        self.setup_traffic_manager()
+
+    def setup_traffic_manager(self):
+        self.traffic_manager.set_synchronous_mode(True)
+
+        path = []
+        for i in range(5):
+            path.append(carla.Location(6.0, 306.6, 0.5))
+            path.append(carla.Location(192.8, 287.4, 0.5))
+            path.append(carla.Location(182.6, 104.9, 0.5))
+            path.append(carla.Location(-7.6, 129.2, 0.5))
+        self.traffic_manager.set_path(self.player, path)
+        self.traffic_manager.ignore_lights_percentage(self.player, 100.0)
+        self.traffic_manager.set_desired_speed(self.player, 30.0)
 
     def get_distance_to_left_boundary(self, left_corner, rotation, left_boundary):
         transform = carla.Transform(left_corner, rotation)
@@ -554,7 +604,12 @@ class World(object):
         
         return min_dist
 
+    # Perhaps I should build my own route, connecting waypoints.
+
     def compute_features(self):
+        next_action = self.traffic_manager.get_next_action(self.player)
+        print("Next action is: ", next_action)
+
         av = self.player
         location = self.player.get_location()
         transform = self.player.get_transform()

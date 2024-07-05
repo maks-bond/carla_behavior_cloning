@@ -671,7 +671,9 @@ def game_loop(args):
         sim_world = client.load_world('Town02') #client.get_world()
         args.sync = True
         hud = HUD(args.width, args.height)
-        world = World(sim_world, hud, args)
+        traffic_manager = client.get_trafficmanager()
+
+        world = World(sim_world, hud, traffic_manager, args)
 
         if args.sync:
             original_settings = sim_world.get_settings()
@@ -680,19 +682,6 @@ def game_loop(args):
                 settings.synchronous_mode = True
                 settings.fixed_delta_seconds = FIXED_DELTA_SECONDS
             sim_world.apply_settings(settings)
-
-            traffic_manager = client.get_trafficmanager()
-            traffic_manager.set_synchronous_mode(True)
-
-            path = []
-            for i in range(5):
-                path.append(carla.Location(6.0, 306.6, 0.5))
-                path.append(carla.Location(192.8, 287.4, 0.5))
-                path.append(carla.Location(182.6, 104.9, 0.5))
-                path.append(carla.Location(-7.6, 129.2, 0.5))
-            traffic_manager.set_path(world.player, path)
-            traffic_manager.ignore_lights_percentage(world.player, 100.0)
-            traffic_manager.set_desired_speed(world.player, 30.0)
 
         if args.autopilot and not sim_world.get_settings().synchronous_mode:
             print("WARNING: You are currently in asynchronous mode and could "
