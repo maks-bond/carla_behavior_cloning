@@ -133,12 +133,19 @@ try:
     from pygame.locals import K_z
     from pygame.locals import K_MINUS
     from pygame.locals import K_EQUALS
+    from pygame.locals import K_LEFTBRACKET
+    from pygame.locals import K_RIGHTBRACKET
+    from pygame.locals import K_BACKSLASH
 except ImportError:
     raise RuntimeError('cannot import pygame, make sure pygame package is installed')
 
 from world import World
-from world import FIXED_DELTA_SECONDS
 from world import get_actor_display_name
+
+from data_recorder import DataRecorder
+
+from compute_features import compute_features
+from compute_features import FIXED_DELTA_SECONDS
 
 # ==============================================================================
 # -- KeyboardControl -----------------------------------------------------------
@@ -165,6 +172,8 @@ class KeyboardControl(object):
             raise NotImplementedError("Actor type not supported")
         self._steer_cache = 0.0
         world.hud.notification("Press 'H' or '?' for help.", seconds=4.0)
+
+        self.data_recorder = DataRecorder()
 
     def parse_events(self, client, world, clock, sync_mode):
         if isinstance(self._control, carla.VehicleControl):
@@ -339,6 +348,15 @@ class KeyboardControl(object):
                         current_lights ^= carla.VehicleLightState.LeftBlinker
                     elif event.key == K_x:
                         current_lights ^= carla.VehicleLightState.RightBlinker
+                    elif event.key == K_LEFTBRACKET:
+                        self.data_recorder.start_recording()
+                        world.hud.notification("Data Recording Started")
+                    elif event.key == K_RIGHTBRACKET:
+                        self.data_recorder.pause_recording()
+                        world.hud.notification("Data Recording Paused")
+                    elif event.key == K_BACKSLASH:
+                        self.data_recorder.write_to_file()
+                        world.hud.notification("Data Recording Saved")
 
         if not self._autopilot_enabled:
             if isinstance(self._control, carla.VehicleControl):
@@ -649,15 +667,6 @@ class HelpText(object):
 # -- game_loop() ---------------------------------------------------------------
 # ==============================================================================
 
-def set_traffic_lights_to_green(world):
-    # Iterate over all traffic lights in the world
-    for actor in world.get_actors():
-        if actor.type_id == 'traffic.traffic_light':
-            traffic_light = actor
-            # Set the traffic light state to green
-            traffic_light.set_state(carla.TrafficLightState.Green)
-            traffic_light.set_green_time(float('inf'))
-
 def game_loop(args):
     pygame.init()
     pygame.font.init()
@@ -701,12 +710,10 @@ def game_loop(args):
             sim_world.wait_for_tick()
 
         clock = pygame.time.Clock()
-
-        set_traffic_lights_to_green(world.world)
         
-        while True:
-            world.compute_features()
+        iter = 0
 
+        while True:
             if args.sync:
                 sim_world.tick()
             clock.tick_busy_loop(60)
@@ -715,6 +722,17 @@ def game_loop(args):
             world.tick(clock)
             world.render(display)
             pygame.display.flip()
+
+            compute_features(world.player, world.map, world.world.debug, iter, controller.data_recorder)
+
+            throttle = controller._control.throttle
+            brake = controller._control.brake
+            steer = controller._control.steer
+
+            accel = throttle if throttle > 0.0 else -brake
+            controller.data_recorder.record_control(iter, accel, steer)
+
+            iter += 1
 
     finally:
 
