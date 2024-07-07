@@ -179,7 +179,7 @@ class KeyboardControl(object):
 
         self.running_model = False
         self.data_recorder = DataRecorder()
-        self.model_evaluator = ModelEvaluator("data_2024-07-06_21-35-10.pt")
+        self.model_evaluator = ModelEvaluator("data_2024-07-07_01-26-54.pt")
 
     def parse_events(self, client, world, clock, sync_mode):
         if isinstance(self._control, carla.VehicleControl):

@@ -27,7 +27,7 @@ class DrivingDataset(Dataset):
         return torch.tensor(self.features[idx], dtype=torch.float32), torch.tensor(self.labels[idx], dtype=torch.float32)
 
 # Load the data
-data_name = 'data_2024-07-06_21-35-10'
+data_name = 'data_2024-07-07_01-26-54'
 csv_file = data_name + '.csv'
 dataset = DrivingDataset(csv_file)
 
@@ -52,7 +52,7 @@ criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # Train the model
-num_epochs = 20
+num_epochs = 25
 for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0

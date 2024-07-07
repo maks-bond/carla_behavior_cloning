@@ -23,8 +23,6 @@ class DataRecorder:
         if self.paused:
             return
 
-        print("timestamp: ", timestamp)
-
         if timestamp not in self.data:
             self.data[timestamp] = DataEntry()
 
@@ -41,8 +39,6 @@ class DataRecorder:
     def record_control(self, timestamp, accel, steering_angle):
         if self.paused:
             return
-
-        print("timestamp: ", timestamp)
 
         if timestamp not in self.data:
             self.data[timestamp] = DataEntry()
