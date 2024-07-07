@@ -100,6 +100,7 @@ try:
     from pygame.locals import K_BACKQUOTE
     from pygame.locals import K_BACKSPACE
     from pygame.locals import K_COMMA
+    from pygame.locals import K_QUOTE
     from pygame.locals import K_DOWN
     from pygame.locals import K_ESCAPE
     from pygame.locals import K_F1
@@ -148,6 +149,8 @@ from compute_features import compute_features
 from compute_features import FIXED_DELTA_SECONDS
 from compute_features import road_ids
 
+from model_evaluator import ModelEvaluator
+
 # ==============================================================================
 # -- KeyboardControl -----------------------------------------------------------
 # ==============================================================================
@@ -174,7 +177,9 @@ class KeyboardControl(object):
         self._steer_cache = 0.0
         world.hud.notification("Press 'H' or '?' for help.", seconds=4.0)
 
+        self.running_model = False
         self.data_recorder = DataRecorder()
+        self.model_evaluator = ModelEvaluator("data_2024-07-06_21-35-10.pt")
 
     def parse_events(self, client, world, clock, sync_mode):
         if isinstance(self._control, carla.VehicleControl):
@@ -357,6 +362,10 @@ class KeyboardControl(object):
                         world.hud.notification("Data Recording Paused")
 
                         print(road_ids)
+                    elif event.key == K_QUOTE:
+                        self.running_model = not self.running_model
+                        world.hud.notification(
+                            'Model is %s' % ('On' if self.running_model else 'Off'))
 
                     elif event.key == K_BACKSLASH:
                         self.data_recorder.write_to_file()
@@ -723,11 +732,23 @@ def game_loop(args):
             clock.tick_busy_loop(60)
             if controller.parse_events(client, world, clock, args.sync):
                 return
-            world.tick(clock)
-            world.render(display)
-            pygame.display.flip()
 
-            compute_features(world.player, world.map, world.world.debug, iter, controller.data_recorder)
+            features = compute_features(world.player, world.map, world.world.debug)
+            f1,f2,f3,f4,f5,f6,f7,f8,f9 = features
+            controller.data_recorder.record_features(iter, f1,f2,f3,f4,f5,f6,f7,f8,f9)
+
+            if controller.running_model:
+                model_output = controller.model_evaluator.eval(features)
+                accel = float(model_output[0])
+                steering = float(model_output[1])
+
+                throttle = accel if accel >= 0.0 else 0.0
+                brake = -accel if accel < 0.0 else 0.0
+
+                print("throttle: ", throttle, ", brake: ", brake, ", steering: ", steering)
+
+                controller._control = carla.VehicleControl(throttle=throttle, steer=steering, brake=brake)
+                world.player.apply_control(controller._control)
 
             throttle = controller._control.throttle
             brake = controller._control.brake
@@ -735,6 +756,10 @@ def game_loop(args):
 
             accel = throttle if throttle > 0.0 else -brake
             controller.data_recorder.record_control(iter, accel, steer)
+
+            world.tick(clock)
+            world.render(display)
+            pygame.display.flip()
 
             iter += 1
 

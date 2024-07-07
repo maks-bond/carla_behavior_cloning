@@ -236,7 +236,7 @@ def curvature_at_distance(source_w, distance):
 
     return curvature
 
-def compute_features(player, map, debug, timestamp, data_recorder):
+def compute_features(player, map, debug):
     # next_action = self.traffic_manager.get_next_action(self.player)
     # print("Next action is: ", next_action)
 
@@ -326,8 +326,8 @@ def compute_features(player, map, debug, timestamp, data_recorder):
     # print("curvature_20: ", curvature_20)
     # print("curvature_25: ", curvature_25)
 
-
-    data_recorder.record_features(timestamp, min_dist_left_bnd, min_dist_right_bnd, heading_delta, speed, curvature_5, curvature_10, curvature_15, curvature_20, curvature_25)
+    # TODO: Create a struct to store features.
+    return (min_dist_left_bnd, min_dist_right_bnd, heading_delta, speed, curvature_5, curvature_10, curvature_15, curvature_20, curvature_25)
 
     # 2. Once that is complete. Fun sub-project is to implement camera controls.
     # 3. Then I need to compute features for ML. Boundary distances are good. Need to know future curvatures, need to know current speed, current heading delta.
