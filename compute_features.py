@@ -202,10 +202,9 @@ def get_waypoint_at_distance_on_route(source_w, distance):
             waypoint = w
     
     if waypoint is None:
-        print("road ids:")
-        for w in source_w.next(distance):
-            print(w.road_id)
-        raise RuntimeError("no waypoints on route")
+        # When this happens we are likely localized to wrong waypoint. Return None.
+        return None
+        #raise RuntimeError("no waypoints on route")
     
     return waypoint
 
@@ -216,12 +215,24 @@ def waypoint_to_2d_point(waypoint):
 def curvature_at_distance(source_w, distance):
     #return 0.0
 
-    STEP = 0.2
+    STEP = 0.4
     w1 = get_waypoint_at_distance_on_route(source_w, distance - STEP)
     w2 = get_waypoint_at_distance_on_route(source_w, STEP)
     w3 = get_waypoint_at_distance_on_route(source_w, distance + STEP)
 
+    if w1 is None or w2 is None or w3 is None:
+        return 0.0
+
+    w3_from_w1_y = compute_lateral_distance(w3.transform.location, w1.transform.location, w1.transform)
+    
+    sign = 1.0 if w3_from_w1_y >= 0.0 else -1.0
+
     curvature = calculate_curvature(waypoint_to_2d_point(w1), waypoint_to_2d_point(w2), waypoint_to_2d_point(w3))
+
+    # TODO: Need to debug sign computation.
+    # It seems to be incorrect.
+    # Let's visualize waypoints and their axis.
+    # curvature*=sign
 
     return curvature
 
@@ -250,7 +261,7 @@ def compute_features(player, map, debug, timestamp, data_recorder):
 
     # print("Road id: ", waypoint.road_id)
 
-    road_ids.add(waypoint.road_id)
+    # road_ids.add(waypoint.road_id)
 
     # print("W at 100.0")
     # for next_w in waypoint.next(100.0):
@@ -301,7 +312,7 @@ def compute_features(player, map, debug, timestamp, data_recorder):
 
     heading_delta = compute_heading_delta(waypoint.transform, transform)
 
-    speed = 0.0
+    speed = av.get_velocity().length()
 
     curvature_5 = curvature_at_distance(waypoint, 5.0)
     curvature_10 = curvature_at_distance(waypoint, 10.0)
@@ -309,11 +320,11 @@ def compute_features(player, map, debug, timestamp, data_recorder):
     curvature_20 = curvature_at_distance(waypoint, 20.0)
     curvature_25 = curvature_at_distance(waypoint, 25.0)
 
-    print("curvature_5: ", curvature_5)
-    print("curvature_10: ", curvature_10)
-    print("curvature_15: ", curvature_15)
-    print("curvature_20: ", curvature_20)
-    print("curvature_25: ", curvature_25)
+    # print("curvature_5: ", curvature_5)
+    # print("curvature_10: ", curvature_10)
+    # print("curvature_15: ", curvature_15)
+    # print("curvature_20: ", curvature_20)
+    # print("curvature_25: ", curvature_25)
 
 
     data_recorder.record_features(timestamp, min_dist_left_bnd, min_dist_right_bnd, heading_delta, speed, curvature_5, curvature_10, curvature_15, curvature_20, curvature_25)
