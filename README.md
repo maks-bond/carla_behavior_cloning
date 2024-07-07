@@ -2,9 +2,12 @@
 2. Run client: `py manual_driving.py`
 
 TODO:
-1. Compute curvature at several displacements in front of AV.
-2. Compute immediate heading delta.
-2.5 I would have to produce distance to closest traffic light since traffic manager is slowing down when traversing an intersection.
-3. Refactor my code out.
-4. Save features as a data set.
-5. Start looking into the model.
+1. Collect more data at turns.
+2. Figure out how to collect data from autopilot.
+3. Use autopilot to record data at turns.
+4. Retrain the model. Achieve circular driving behavior.
+
+Once I do the above, I can publish my repo.
+I can clean up the code and have a nice Readme.
+
+Next steps would involve adding behavior to acc, nudge, handle traffic lights, etc.
