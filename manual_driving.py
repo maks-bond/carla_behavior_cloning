@@ -146,6 +146,7 @@ from data_recorder import DataRecorder
 
 from compute_features import compute_features
 from compute_features import FIXED_DELTA_SECONDS
+from compute_features import road_ids
 
 # ==============================================================================
 # -- KeyboardControl -----------------------------------------------------------
@@ -354,6 +355,9 @@ class KeyboardControl(object):
                     elif event.key == K_RIGHTBRACKET:
                         self.data_recorder.pause_recording()
                         world.hud.notification("Data Recording Paused")
+
+                        print(road_ids)
+
                     elif event.key == K_BACKSLASH:
                         self.data_recorder.write_to_file()
                         world.hud.notification("Data Recording Saved")

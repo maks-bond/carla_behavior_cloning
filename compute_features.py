@@ -142,17 +142,16 @@ def compute_heading_delta(waypoint_transform, av_transform):
     global_from_av = transform_to_rotation_matrix(av_transform)
     av_from_x = np.array([1.0,0.0,0.0])
 
-    print(av_from_x.shape)
-
     x_in_wa = np.dot(np.dot(global_from_wa.T, global_from_av),av_from_x)
     
-    print(x_in_wa)
-
     x_in_wa_2d = x_in_wa[:2]
     unit_x_2d = np.array([1.0, 0.0])
     
     theta_cos = np.dot(x_in_wa_2d, unit_x_2d)/(np.linalg.norm(x_in_wa_2d)*np.linalg.norm(unit_x_2d))
     theta = math.acos(theta_cos)
+
+    sign = 1.0 if x_in_wa[1] >= 0.0 else -1.0
+    theta = sign*theta
 
     return theta
 
@@ -170,11 +169,13 @@ def calculate_curvature(p1, p2, p3):
     
     # Calculate the area of the triangle using Heron's formula
     s = (a + b + c) / 2  # Semi-perimeter
-    area = math.sqrt(s * (s - a) * (s - b) * (s - c))
-    
+    area_sq = s * (s - a) * (s - b) * (s - c)
+
     # Check if the points are collinear (area == 0)
-    if area == 0:
-        return 0.0  # Curvature is zero for collinear points
+    if area_sq <= 0.0:
+        return 0.0
+
+    area = math.sqrt(area_sq)
     
     # Calculate the circumradius
     circumradius = (a * b * c) / (4 * area)
@@ -186,6 +187,44 @@ def calculate_curvature(p1, p2, p3):
 
 # Perhaps I should build my own route, connecting waypoints.
 
+#road_ids = set()
+#road_ids = {0, 1, 2, 3, 390, 12, 13, 14, 15, 16, 17, 18, 19, 276, 411, 32, 47, 62, 351, 252, 383}
+road_ids = {32, 1, 0, 3, 2, 12, 13, 14, 15, 16, 17, 18, 19, 276, 411, 383}
+
+def get_waypoint_at_distance_on_route(source_w, distance):
+    waypoint = None
+    for w in source_w.next(distance):
+        if w.road_id in road_ids:
+            if waypoint is not None:
+                print("Existing waypoint has road id: ", waypoint.road_id)
+                print("New waypoint has road id: ", w.road_id)
+                raise RuntimeError("multiple waypoints on route")
+            waypoint = w
+    
+    if waypoint is None:
+        print("road ids:")
+        for w in source_w.next(distance):
+            print(w.road_id)
+        raise RuntimeError("no waypoints on route")
+    
+    return waypoint
+
+def waypoint_to_2d_point(waypoint):
+    location = waypoint.transform.location
+    return (location.x, location.y)
+
+def curvature_at_distance(source_w, distance):
+    #return 0.0
+
+    STEP = 0.2
+    w1 = get_waypoint_at_distance_on_route(source_w, distance - STEP)
+    w2 = get_waypoint_at_distance_on_route(source_w, STEP)
+    w3 = get_waypoint_at_distance_on_route(source_w, distance + STEP)
+
+    curvature = calculate_curvature(waypoint_to_2d_point(w1), waypoint_to_2d_point(w2), waypoint_to_2d_point(w3))
+
+    return curvature
+
 def compute_features(player, map, debug, timestamp, data_recorder):
     # next_action = self.traffic_manager.get_next_action(self.player)
     # print("Next action is: ", next_action)
@@ -195,8 +234,8 @@ def compute_features(player, map, debug, timestamp, data_recorder):
     transform = player.get_transform()
     rotation = transform.rotation
 
-    print("Location x: ", location.x, ", locataion.y: ", location.y, ", location.z: ", location.z)
-    print("rotation pitch: ", rotation.pitch, ", rotation.yaw: ", rotation.yaw, ", rotation.roll: ", rotation.roll)
+    # print("Location x: ", location.x, ", locataion.y: ", location.y, ", location.z: ", location.z)
+    # print("rotation pitch: ", rotation.pitch, ", rotation.yaw: ", rotation.yaw, ", rotation.roll: ", rotation.roll)
 
     WAYPOINT_COLOR = carla.Color(255,0,0,100)
     CORNER_COLOR = carla.Color(0,0,255,100)
@@ -209,11 +248,13 @@ def compute_features(player, map, debug, timestamp, data_recorder):
     # Waypoint represents closest lane sample to given location.
     waypoint = map.get_waypoint(location, project_to_road=True, lane_type=carla.LaneType.Driving)
 
-    print("Road id: ", waypoint.road_id)
+    # print("Road id: ", waypoint.road_id)
 
-    print("W at 100.0")
-    for next_w in waypoint.next(100.0):
-        print(next_w.road_id)
+    road_ids.add(waypoint.road_id)
+
+    # print("W at 100.0")
+    # for next_w in waypoint.next(100.0):
+    #     print(next_w.road_id)
 
     lane_center = waypoint.transform.location
     rotation = waypoint.transform.rotation
@@ -259,14 +300,21 @@ def compute_features(player, map, debug, timestamp, data_recorder):
     #print("min_dist_right_bnd: ", min_dist_right_bnd)
 
     heading_delta = compute_heading_delta(waypoint.transform, transform)
-    print("heading_delta is: ", heading_delta)
 
     speed = 0.0
-    curvature_5 = 0.0
-    curvature_10 = 0.0
-    curvature_15 = 0.0
-    curvature_20 = 0.0
-    curvature_25 = 0.0
+
+    curvature_5 = curvature_at_distance(waypoint, 5.0)
+    curvature_10 = curvature_at_distance(waypoint, 10.0)
+    curvature_15 = curvature_at_distance(waypoint, 15.0)
+    curvature_20 = curvature_at_distance(waypoint, 20.0)
+    curvature_25 = curvature_at_distance(waypoint, 25.0)
+
+    print("curvature_5: ", curvature_5)
+    print("curvature_10: ", curvature_10)
+    print("curvature_15: ", curvature_15)
+    print("curvature_20: ", curvature_20)
+    print("curvature_25: ", curvature_25)
+
 
     data_recorder.record_features(timestamp, min_dist_left_bnd, min_dist_right_bnd, heading_delta, speed, curvature_5, curvature_10, curvature_15, curvature_20, curvature_25)
 
