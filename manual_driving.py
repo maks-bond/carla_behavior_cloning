@@ -750,9 +750,10 @@ def game_loop(args):
                 controller._control = carla.VehicleControl(throttle=throttle, steer=steering, brake=brake)
                 world.player.apply_control(controller._control)
 
-            throttle = controller._control.throttle
-            brake = controller._control.brake
-            steer = controller._control.steer
+            applied_control = world.player.get_control()
+            throttle = applied_control.throttle
+            brake = applied_control.brake
+            steer = applied_control.steer
 
             accel = throttle if throttle > 0.0 else -brake
             controller.data_recorder.record_control(iter, accel, steer)

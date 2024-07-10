@@ -37,7 +37,7 @@ test_size = len(dataset) - train_size
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 
 # Define data loaders for batching
-batch_size = 32
+batch_size = 64
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
@@ -46,10 +46,19 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 print("Device is: ", device)
 
+def weighted_loss(output, target, accel_weight, steering_weight):
+    # Output and target should have the shape (batch_size, 2)
+    accel_loss = nn.MSELoss()(output[:, 0], target[:, 0])  
+    steering_loss = nn.MSELoss()(output[:, 1], target[:, 1])
+    return accel_weight * accel_loss + steering_weight * steering_loss
+
 # Initialize the model, loss function, and optimizer
 model = DrivingModel().to(device)
-criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+#criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=0.002)
+
+ACCEL_WEIGHT = 0.1
+STEERING_WEIGHT = 1.0
 
 # Train the model
 num_epochs = 25
@@ -60,7 +69,7 @@ for epoch in range(num_epochs):
         features, labels = features.to(device), labels.to(device)
         optimizer.zero_grad()
         outputs = model(features)
-        loss = criterion(outputs, labels)
+        loss = weighted_loss(outputs, labels, ACCEL_WEIGHT, STEERING_WEIGHT)
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
@@ -78,7 +87,7 @@ with torch.no_grad():
     for features, labels in test_loader:
         features, labels = features.to(device), labels.to(device)
         outputs = model(features)
-        loss = criterion(outputs, labels)
+        loss = weighted_loss(outputs, labels, ACCEL_WEIGHT, STEERING_WEIGHT)
         test_loss += loss.item()
 
 print(f"Test Loss: {test_loss/len(test_loader)}")

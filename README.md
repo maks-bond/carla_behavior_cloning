@@ -11,3 +11,5 @@ Once I do the above, I can publish my repo.
 I can clean up the code and have a nice Readme.
 
 Next steps would involve adding behavior to acc, nudge, handle traffic lights, etc.
+
+Next big step is to perform trajectory classification.

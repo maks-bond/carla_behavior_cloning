@@ -19,5 +19,4 @@ class ModelEvaluator:
 
         output = self.model(features_tensor)
         output = output.squeeze(0)
-        print("output shape: ", output.shape)
         return output.detach().numpy()
