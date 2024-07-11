@@ -744,7 +744,7 @@ def game_loop(args):
             if controller.running_model:
                 model_output = controller.model_evaluator.eval(features)
                 #accel = float(model_output[0])
-                accel = 0.375
+                accel = 0.379
                 steering = float(model_output[1])
 
                 throttle = accel if accel >= 0.0 else 0.0

@@ -40,7 +40,7 @@ print("train_dataset.shape: ", len(train_dataset))
 print("test_dataset.shape: ", len(test_dataset))
 
 # Define data loaders for batching
-batch_size = 64
+batch_size = 128
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
@@ -51,8 +51,8 @@ print("Device is: ", device)
 
 def weighted_loss(output, target, accel_weight, steering_weight):
     # Output and target should have the shape (batch_size, 2)
-    accel_loss = nn.L1Loss()(output[:, 0], target[:, 0])  
-    steering_loss = nn.L1Loss()(output[:, 1], target[:, 1])
+    accel_loss = nn.MSELoss()(output[:, 0], target[:, 0])  
+    steering_loss = nn.MSELoss()(output[:, 1], target[:, 1])
     return accel_weight * accel_loss + steering_weight * steering_loss
 
 # Initialize the model, loss function, and optimizer
