@@ -483,7 +483,7 @@ class World(object):
             path.append(carla.Location(-7.6, 129.2, 0.5))
         self.traffic_manager.set_path(self.player, path)
         self.traffic_manager.ignore_lights_percentage(self.player, 100.0)
-        self.traffic_manager.set_desired_speed(self.player, 6.0)
+        self.traffic_manager.set_desired_speed(self.player, 8.0)
 
     def set_traffic_lights_to_green(self):
         # Iterate over all traffic lights in the world

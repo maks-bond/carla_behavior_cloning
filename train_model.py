@@ -36,6 +36,9 @@ train_size = int(0.8 * len(dataset))
 test_size = len(dataset) - train_size
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 
+print("train_dataset.shape: ", len(train_dataset))
+print("test_dataset.shape: ", len(test_dataset))
+
 # Define data loaders for batching
 batch_size = 64
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -48,16 +51,16 @@ print("Device is: ", device)
 
 def weighted_loss(output, target, accel_weight, steering_weight):
     # Output and target should have the shape (batch_size, 2)
-    accel_loss = nn.MSELoss()(output[:, 0], target[:, 0])  
-    steering_loss = nn.MSELoss()(output[:, 1], target[:, 1])
+    accel_loss = nn.L1Loss()(output[:, 0], target[:, 0])  
+    steering_loss = nn.L1Loss()(output[:, 1], target[:, 1])
     return accel_weight * accel_loss + steering_weight * steering_loss
 
 # Initialize the model, loss function, and optimizer
 model = DrivingModel().to(device)
 #criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.002)
+optimizer = optim.Adam(model.parameters(), lr=0.003)
 
-ACCEL_WEIGHT = 0.1
+ACCEL_WEIGHT = 0.0
 STEERING_WEIGHT = 1.0
 
 # Train the model

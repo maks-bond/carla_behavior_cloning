@@ -324,6 +324,10 @@ class KeyboardControl(object):
                             print("WARNING: You are currently in asynchronous mode and could "
                                   "experience some issues with the traffic simulation")
                         self._autopilot_enabled = not self._autopilot_enabled
+                        
+                        self.data_recorder.toggle_recording()
+                        self.running_model = not self.running_model
+
                         world.player.set_autopilot(self._autopilot_enabled)
                         world.hud.notification(
                             'Autopilot %s' % ('On' if self._autopilot_enabled else 'Off'))
@@ -739,7 +743,8 @@ def game_loop(args):
 
             if controller.running_model:
                 model_output = controller.model_evaluator.eval(features)
-                accel = float(model_output[0])
+                #accel = float(model_output[0])
+                accel = 0.375
                 steering = float(model_output[1])
 
                 throttle = accel if accel >= 0.0 else 0.0

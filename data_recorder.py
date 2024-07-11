@@ -19,6 +19,12 @@ class DataRecorder:
     def pause_recording(self):
         self.paused = True
 
+    def toggle_recording(self):
+        if self.paused:
+            self.start_recording()
+        else:
+            self.pause_recording()
+
     def record_features(self, timestamp, min_dist_to_left_bnd, min_dist_to_right_bnd, heading_delta, speed, curvature_5, curvature_10, curvature_15, curvature_20, curvature_25):
         if self.paused:
             return
