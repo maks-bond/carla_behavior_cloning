@@ -2,10 +2,8 @@
 2. Run client: `py manual_driving.py`
 
 TODO:
-1. Collect more data at turns.
-2. Figure out how to collect data from autopilot.
-3. Use autopilot to record data at turns.
-4. Retrain the model. Achieve circular driving behavior.
+1. Let's eliminate speed feature and eliminate accel label. - DONE
+2. Retrain the model. Achieve circular driving behavior. - SOMEWHAT DONE
 
 Once I do the above, I can publish my repo.
 I can clean up the code and have a nice Readme.

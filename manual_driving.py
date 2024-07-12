@@ -151,6 +151,8 @@ from compute_features import road_ids
 
 from model_evaluator import ModelEvaluator
 
+from model_no_speed_accel import DrivingModel
+
 # ==============================================================================
 # -- KeyboardControl -----------------------------------------------------------
 # ==============================================================================
@@ -179,7 +181,7 @@ class KeyboardControl(object):
 
         self.running_model = False
         self.data_recorder = DataRecorder()
-        self.model_evaluator = ModelEvaluator("data_2024-07-07_01-26-54.pt")
+        self.model_evaluator = ModelEvaluator("v0_1.pt", DrivingModel)
 
     def parse_events(self, client, world, clock, sync_mode):
         if isinstance(self._control, carla.VehicleControl):
@@ -738,14 +740,14 @@ def game_loop(args):
                 return
 
             features = compute_features(world.player, world.map, world.world.debug)
-            f1,f2,f3,f4,f5,f6,f7,f8,f9 = features
-            controller.data_recorder.record_features(iter, f1,f2,f3,f4,f5,f6,f7,f8,f9)
+            controller.data_recorder.record_features(iter, features)
 
             if controller.running_model:
-                model_output = controller.model_evaluator.eval(features)
+                model_features = (features.min_dist_left_bnd, features.min_dist_right_bnd, features.heading_delta, features.curvature_5, features.curvature_10, features.curvature_15, features.curvature_20, features.curvature_25)
+                model_output = controller.model_evaluator.eval(model_features)
                 #accel = float(model_output[0])
                 accel = 0.379
-                steering = float(model_output[1])
+                steering = float(model_output[0])
 
                 throttle = accel if accel >= 0.0 else 0.0
                 brake = -accel if accel < 0.0 else 0.0

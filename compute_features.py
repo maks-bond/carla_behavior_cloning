@@ -236,6 +236,25 @@ def curvature_at_distance(source_w, distance):
 
     return curvature
 
+class Features:
+    def __init__(self, min_dist_left_bnd, min_dist_right_bnd, heading_delta, speed, 
+                 curvature_5, curvature_10, curvature_15, curvature_20, curvature_25):
+        self.min_dist_left_bnd = min_dist_left_bnd
+        self.min_dist_right_bnd = min_dist_right_bnd
+        self.heading_delta = heading_delta
+        self.speed = speed
+        self.curvature_5 = curvature_5
+        self.curvature_10 = curvature_10
+        self.curvature_15 = curvature_15
+        self.curvature_20 = curvature_20
+        self.curvature_25 = curvature_25
+
+    def __repr__(self):
+        return (f"Features(min_dist_left_bnd={self.min_dist_left_bnd}, "
+                f"min_dist_right_bnd={self.min_dist_right_bnd}, heading_delta={self.heading_delta}, "
+                f"speed={self.speed}, curvature_5={self.curvature_5}, curvature_10={self.curvature_10}, "
+                f"curvature_15={self.curvature_15}, curvature_20={self.curvature_20}, curvature_25={self.curvature_25})")
+
 def compute_features(player, map, debug):
     # next_action = self.traffic_manager.get_next_action(self.player)
     # print("Next action is: ", next_action)
@@ -327,7 +346,8 @@ def compute_features(player, map, debug):
     # print("curvature_25: ", curvature_25)
 
     # TODO: Create a struct to store features.
-    return (min_dist_left_bnd, min_dist_right_bnd, heading_delta, speed, curvature_5, curvature_10, curvature_15, curvature_20, curvature_25)
+    features = Features(min_dist_left_bnd, min_dist_right_bnd, heading_delta, speed, curvature_5, curvature_10, curvature_15, curvature_20, curvature_25)
+    return features
 
     # 2. Once that is complete. Fun sub-project is to implement camera controls.
     # 3. Then I need to compute features for ML. Boundary distances are good. Need to know future curvatures, need to know current speed, current heading delta.

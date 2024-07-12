@@ -1,10 +1,8 @@
 import torch
 
-from model import DrivingModel
-
 class ModelEvaluator:
-    def __init__(self, model_path):
-        self.model = DrivingModel()
+    def __init__(self, model_path, model_class):
+        self.model = model_class()
 
         self.model.load_state_dict(torch.load(model_path))
 

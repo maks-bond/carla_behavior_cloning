@@ -25,22 +25,22 @@ class DataRecorder:
         else:
             self.pause_recording()
 
-    def record_features(self, timestamp, min_dist_to_left_bnd, min_dist_to_right_bnd, heading_delta, speed, curvature_5, curvature_10, curvature_15, curvature_20, curvature_25):
+    def record_features(self, timestamp, features):
         if self.paused:
             return
 
         if timestamp not in self.data:
             self.data[timestamp] = DataEntry()
 
-        self.data[timestamp].min_dist_to_left_bnd = min_dist_to_left_bnd
-        self.data[timestamp].min_dist_to_right_bnd = min_dist_to_right_bnd
-        self.data[timestamp].heading_delta = heading_delta
-        self.data[timestamp].speed = speed
-        self.data[timestamp].curvature_5 = curvature_5
-        self.data[timestamp].curvature_10 = curvature_10
-        self.data[timestamp].curvature_15 = curvature_15
-        self.data[timestamp].curvature_20 = curvature_20
-        self.data[timestamp].curvature_25 = curvature_25
+        self.data[timestamp].min_dist_to_left_bnd = features.min_dist_left_bnd
+        self.data[timestamp].min_dist_to_right_bnd = features.min_dist_right_bnd
+        self.data[timestamp].heading_delta = features.heading_delta
+        self.data[timestamp].speed = features.speed
+        self.data[timestamp].curvature_5 = features.curvature_5
+        self.data[timestamp].curvature_10 = features.curvature_10
+        self.data[timestamp].curvature_15 = features.curvature_15
+        self.data[timestamp].curvature_20 = features.curvature_20
+        self.data[timestamp].curvature_25 = features.curvature_25
 
     def record_control(self, timestamp, accel, steering_angle):
         if self.paused:
