@@ -1,4 +1,4 @@
-1. Start Server: `cd /opt/Carla/ && CarlaUE4.sh --carla-server`
+1. Start Server: `cd /opt/Carla/ && ./CarlaUE4.sh --carla-server`
 2. Run client: `python3.8 manual_driving.py`
 
 TODO:
